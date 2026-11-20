@@ -1,0 +1,103 @@
+Metadata-Version: 2.4
+Name: dove-coin
+Version: 0.1.0
+Summary: Dove (DOVC): a proof-of-work cryptocurrency with a factorial difficulty ladder
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cryptography>=44
+Dynamic: license-file
+
+# Dove (DOVC)
+
+A proof-of-work cryptocurrency with a **factorial difficulty ladder**. Mining starts trivially
+easy, then climbs through six stages (2!, 4!, 6!, 8!, 10!, 12! expected attempts per block) until
+it reaches a permanent wall. Argon2id proof of work, a UTXO ledger, Schnorr signatures, and a
+publicly disclosed developer allocation in the genesis block.
+
+> **Status: release candidate 1 (0.1.0).** Complete and tested, but **not audited and not ready
+> for real value.** Mainnet will not start until real developer keys are generated. See
+> [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) and [SECURITY.md](SECURITY.md).
+
+Genesis message: `DOVC 11/16/2026 - Today's Wordle #1976 is DRAWL, let the doves fly! :3`
+
+Mainnet genesis id: printed by `python -m dove genesis` once the payout address is installed
+(`python -m dove setpayout <address>`). Every node must print the same id, or it is on a different chain.
+
+## Install
+
+Needs Python 3.10+.
+
+```
+pip install .            # installs the `dove` command and the `cryptography` dependency
+dove --version
+```
+
+(Or run from this folder without installing: `pip install "cryptography>=44"` then
+`python -m dove ...`.)
+
+## Try it on the testnet (worthless coins, runs on anything)
+
+```
+dove wallet new --network test --file alice.json
+dove wallet new --network test --file bob.json
+
+# terminal 1: a miner paying Alice (paste her address)
+dove node --network test --datadir ./a --mine <alice-address>
+
+# terminal 2: a second node that peers with the first
+dove node --network test --datadir ./b --port 18834 --rpc-port 18835 --seed 127.0.0.1:18833
+
+# after 100+ blocks Alice's first rewards mature. Send through the OTHER node:
+dove wallet balance --network test --file alice.json --datadir ./b --rpc 127.0.0.1:18835
+dove wallet send --network test --file alice.json --to <bob-address> --amount 12.5 --datadir ./b --rpc 127.0.0.1:18835
+dove wallet balance --network test --file bob.json --datadir ./a
+```
+
+The wallet commands talk to a node's local RPC and read its token from `<datadir>/rpc.token`.
+
+Other commands: `dove status`, `dove genesis --network main|test`, `dove devkeys`.
+
+## Mainnet
+
+```
+dove node --host 0.0.0.0 --seed <seed-host>:8833 --mine <your-dovc-address>
+```
+
+Refuses to start while the genesis still uses the public placeholder developer keys (run
+`dove devkeys` offline first). Mainnet uses 64 MiB Argon2id, which a single CPU core hashes
+about 5 to 10 times per second (it depends on the CPU), so early blocks take well under a second and
+stage 6 is meant to need dedicated hardware.
+
+## What is in the box
+
+| Area | Where |
+|---|---|
+| Consensus, stages, rewards, integer-only difficulty ramp | `dove/params.py`, `dove/schedule.py`, `dove/chain.py` |
+| One UTXO set with per-block undo data; reorg-safe | `dove/chain.py` |
+| P2P sync and relay, bans, flood limits | `dove/p2p.py`, `dove/node.py` |
+| Mempool, fee floor, block building | `dove/mempool.py` |
+| Disk storage (crash-safe) | `dove/storage.py` |
+| Integrated miner, authenticated local RPC | `dove/node.py` |
+| Wallet, addresses, CLI | `dove/wallet.py`, `dove/bech32m.py`, `dove/cli.py` |
+| Protocol summary (tables generated from the code) | [docs/PROTOCOL.md](docs/PROTOCOL.md) |
+
+## Tests
+
+```
+python -m unittest discover -s tests -v
+```
+
+57 tests: the schedule and difficulty math, BIP340 and Bech32m against official vectors, genesis,
+validation, spending, forks and reorganizations (including rollback of a bad branch), and real
+multi-node tests over localhost for sync, relay, partitions, restarts, a torn disk write,
+rogue peers, RPC authentication, banning, flood control, and testnet isolation.
+
+## Known limits
+
+- Not audited. Schnorr code is the slow, non-constant-time reference version.
+- Blocks are held in memory; P2P traffic is unencrypted; the wallet file is plain text (mode 600).
+- No difficulty retargeting by design, so block time follows whoever is mining.
+
+License: MIT (see [LICENSE](LICENSE)); confirm this is the license you want before publishing.

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dove-coin"
+dynamic = ["version"]
+description = "Dove (DOVC): a proof-of-work cryptocurrency with a factorial difficulty ladder"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["cryptography>=44"]
+
+[project.scripts]
+dove = "dove.cli:main"
+
+[tool.setuptools]
+packages = ["dove"]
+
+[tool.setuptools.dynamic]
+version = {attr = "dove.__version__"}
+
+[tool.setuptools.package-data]
+dove = ["dev_payloads.json"]
